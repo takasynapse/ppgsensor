@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1008209010266",
+    "project_id": "project-ppg-b49c5",
+    "storage_bucket": "project-ppg-b49c5.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1008209010266:android:6a5c181df3c13bd528c263",
+        "android_client_info": {
+          "package_name": "com.example.ppgsensor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTwUeVSNJMTCxjrtxKliZID_5Ydf-AQQI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
