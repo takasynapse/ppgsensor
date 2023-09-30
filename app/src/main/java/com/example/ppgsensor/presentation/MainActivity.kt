@@ -66,6 +66,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private val ppgValueList = mutableListOf<Float>()
     private val accValueList = mutableListOf<Float>()
 
+    //外部ストレージに保存するパーミッション
+    private val WRITE_EXTERNAL_STORAGE_REQUEST = 1
+
     //firebase cloud storageに保存
     val storage = Firebase.storage
     val storageRef = storage.reference
@@ -111,6 +114,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 arrayOf(Manifest.permission.BODY_SENSORS),
                 PERMISSION_REQUEST_BODY_SENSORS
             )
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                WRITE_EXTERNAL_STORAGE_REQUEST
+            )
         } else {
             setupSensor()
         }
@@ -151,8 +159,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         super.onResume()
         // setupSensor()を呼んで、センサをセンサリスナに登録
 //        setupSensor()
-        //リストの値をすべて削除する
-        ppgValueList.clear()
+
         ppgSensor = sensorManager.getDefaultSensor(65572) // PPGセンサを用いる
         sensorManager.registerListener(this, ppgSensor, SensorManager.SENSOR_DELAY_NORMAL) // 設定したセンサに対してイベントリスナを設定
 //        Log.d("FASTEST", "${SensorManager.SENSOR_DELAY_FASTEST}")
@@ -162,41 +169,45 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         sensorManager.registerListener(this, accSensor, SensorManager.SENSOR_DELAY_NORMAL)
     }
 
+    private fun saveDataToFile() {
+
+    }
+
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(this)
-        Log.d("ppgValueList", "$ppgValueList")
+        // データを外部ファイルに保存
+        saveDataToFile();
 
-        val ppgFileName = "ppg_data1.csv"
-        val accFileName = "acc_data.csv"
+//        val ppgFileName = "ppg_data1.csv"
+//        val accFileName = "acc_data.csv"
 //        val filepath: String = applicationContext.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
         // /storage/emulated/0/Android/data/com.example.ppgsensor/files/Documents./Log.csv
-        var filepath = Environment.getExternalStorageDirectory().toString()
-        Log.d("filepath", "$filepath")
-        try {
-            // 内部ストレージにファイルを作成
-            Log.d("Before", "before")
-            val ppgfile = File(filepath, ppgFileName)
-            val accfile = File(filepath, accFileName)
-            Log.d("after", "after")
-            // this.filesDir = /data/data/com.example.ppgsensor/files
-            val directory = this.filesDir
-            val fileWriter = FileWriter(ppgfile)
-            // CSV形式でデータを書き込む
-            for (data in ppgValueList) {
-                //val record = data.joinToString(",") // カンマで要素を結合
-                fileWriter.write("$data\n") // 改行を追加
-                Log.d("aa", "Aa")
-            }
-            fileWriter.close()
-            Log.d("TAG", "CSVデータをストレージに保存しました!：$ppgFileName")
+//        var filepath = Environment.getExternalStorageDirectory().toString()
+//        Log.d("filepath", "$filepath")
+//        try {
+//            // 内部ストレージにファイルを作成
+//            Log.d("Before", "before")
+//            val ppgfile = File(filepath, ppgFileName)
+//            val accfile = File(filepath, accFileName)
+//            Log.d("after", "after")
+//            // this.filesDir = /data/data/com.example.ppgsensor/files
+//            val directory = this.filesDir
+//            val fileWriter = FileWriter(ppgfile)
+//            // CSV形式でデータを書き込む
+//            for (data in ppgValueList) {
+////                val record = data.joinToString(",") // カンマで要素を結合
+//                fileWriter.write("$data\n") // 改行を追加
+//            }
+//            fileWriter.close()
+//            Log.d("TAG", "CSVデータをストレージに保存しました!：$ppgFileName")
             //storageに保存
             //storage内にパスを参照
-            val uploadFileRef = dataRef?.child("data/${ppgFileName}")
+//            val uploadFileRef = dataRef?.child("data/${ppgFileName}")
             //ローカルのファイルを参照しに行く
-            var newpath = "$filepath/$ppgFileName"
-            var file = Uri.fromFile(File(newpath))
-            Log.d("newpath", newpath)
+//            var newpath = "$filepath/$ppgFileName"
+//            var file = Uri.fromFile(File(newpath))
+//            Log.d("newpath", newpath)
             // /storage/emulated/0/Android/data/com.example.ppgsensor/files/Documents./ppg_data1.csv
 //            val uploadTask = uploadFileRef?.putFile(file)
 //            uploadTask?.addOnSuccessListener {
@@ -205,14 +216,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 //                Log.e("FirebaseStorage", "CSVファイルのアップロード中にエラーが発生しました。", e)
 //            }
 
-        } catch (e: IOException) {
-            Log.d("error", "$e.printStackTrace()")
-        }
-
-
-
-
-
+//        } catch (e: IOException) {
+//            Log.d("error", "$e.printStackTrace()")
+//        }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
@@ -226,27 +232,42 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 //        val timestamp = System.currentTimeMillis()
 //        val timestampFormatted = dateFormat.format(Date(timestamp))
         event?.let {
-            Log.d("sensorevent", "${it.sensor.type}") //65572と出力される。
+//            Log.d("sensorevent", "${it.sensor.type}") //65572と出力される。
             if(it.sensor.type == 65572) {
                 ppgValue = it.values[0]
-                Log.d("ppg", "$ppgValue")
+//                Log.d("ppg", "$ppgValue")
 //                ppgValueList.add(timestampFormatted.toFloat())
-                ppgValueList.add(ppgValue)
+                if(isRecording) {
+                    ppgValueList.add(ppgValue)
+                }
             }
             if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                 accValueX = it.values[0]
                 accValueY = it.values[1]
                 accValueZ = it.values[2]
 //                accValueList.add(timestampFormatted.toFloat())
-                accValueList.add(accValueX)
-                Log.d("acc", "$accValueX, $accValueY, $accValueZ")
+                if (isRecording) {
+                    accValueList.add(accValueX)
+                }
+//                Log.d("acc", "$accValueX, $accValueY, $accValueZ")
             }
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        Log.d("stop", "stop")
+    }
     private val onToggleListening: () -> Unit = {
         isListening = !isListening
         isRecording = !isRecording
+        stopRecording()
+    }
+
+    private fun stopRecording() {
+        Log.d("ppgValueList", "$ppgValueList")
+        //リストの値をすべて削除する
+        ppgValueList.clear()
     }
 
 
