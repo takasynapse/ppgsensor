@@ -40,6 +40,8 @@ import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import com.google.firebase.storage.ktx.storage
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -63,18 +65,16 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var isListening by mutableStateOf(false)
     //記録されているかどうかのフラグ
     private  var isRecording by mutableStateOf(false)
-    private val ppgValueList = mutableListOf<Float>()
-    private val accValueList = mutableListOf<Float>()
+    private val ppgValueList = mutableListOf<String>()
+    private val accValueList = mutableListOf<String>()
 
     //外部ストレージに保存するパーミッション
     private val WRITE_EXTERNAL_STORAGE_REQUEST = 1
 
     //firebase cloud storageに保存
     val storage = Firebase.storage
-    val storageRef = storage.reference
-    var dataRef: StorageReference? = storageRef.child("data")
 
-
+    private lateinit var auth: FirebaseAuth
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,13 +84,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         //アプリ内でFirebaseを初期化
         FirebaseApp.initializeApp(this)
 
+        auth = FirebaseAuth.getInstance()
 
-        //全てのセンサを取得する
-//        val deviceSensors: List<Sensor> = sensorManager.getSensorList(Sensor.TYPE_ALL)
-//        for (currentSensor in deviceSensors) {
-//            Log.d("List sensors", "Name: ${currentSensor.name} /Type_String: ${currentSensor.stringType} /Type_number: ${currentSensor.type}")
-//        }
-
+        // 匿名サインインを実行
+        signInAnonymously()
 
         if(sensorManager.getDefaultSensor(65572).type == 65572) {
             setContent {
@@ -102,6 +99,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
         ppgSensor = sensorManager.getDefaultSensor(65572)
         Log.d("TAG", ppgSensor.toString())
+
+        // 外部ストレージへの書き込み許可をリクエスト
+        requestStoragePermission()
+
 
         // 必要なパーミッションのリクエスト
         if (ContextCompat.checkSelfPermission(
@@ -124,6 +125,50 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        val currentUser = auth.currentUser
+        if(currentUser == null) {
+            auth.signInAnonymously()
+                .addOnCompleteListener(this) { task ->
+                    if (task.isSuccessful) {
+                        // Sign in success, update UI with the signed-in user's information
+                        Log.d("TAG", "signInAnonymously:success")
+                        val user = auth.currentUser
+                    } else {
+                        // If sign in fails, display a message to the user.
+                        Log.d("TAG", "signInAnonymously:failure", task.exception)
+                    }
+                }
+        }
+    }
+
+    private fun signInAnonymously() {
+        auth.signInAnonymously()
+            .addOnCompleteListener(this) { task ->
+                if (task.isSuccessful) {
+                    // サインイン成功時の処理
+                    val user: FirebaseUser? = auth.currentUser
+                    Log.d("TAG", "匿名サインイン成功 UID: ${user?.uid}")
+                } else {
+                    // エラー時の処理
+                    Log.e("TAG", "匿名サインインエラー", task.exception)
+                }
+            }
+    }
+    private fun requestStoragePermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                1
+            )
+        }
+    }
+
+
     //ユーザがセンサの使用を許可したときに発火する
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -135,7 +180,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             if (grantResults.isNotEmpty() && (grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
                 setupSensor()
             } else {
-                // パーミッションが拒否された場合の処理
+                // パーミッションが拒否された場合の処
             }
         }
     }
@@ -161,64 +206,15 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 //        setupSensor()
 
         ppgSensor = sensorManager.getDefaultSensor(65572) // PPGセンサを用いる
-        sensorManager.registerListener(this, ppgSensor, SensorManager.SENSOR_DELAY_NORMAL) // 設定したセンサに対してイベントリスナを設定
-//        Log.d("FASTEST", "${SensorManager.SENSOR_DELAY_FASTEST}")
-//        Log.d("GAME", "${SensorManager.SENSOR_DELAY_GAME}")
-//        Log.d("NORMAL", "${SensorManager.SENSOR_DELAY_NORMAL}")
+        sensorManager.registerListener(this, ppgSensor, SensorManager.SENSOR_DELAY_FASTEST) // 設定したセンサに対してイベントリスナを設定
         accSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        sensorManager.registerListener(this, accSensor, SensorManager.SENSOR_DELAY_NORMAL)
-    }
-
-    private fun saveDataToFile() {
-
+        sensorManager.registerListener(this, accSensor, SensorManager.SENSOR_DELAY_FASTEST)
     }
 
     override fun onPause() {
         super.onPause()
         sensorManager.unregisterListener(this)
-        // データを外部ファイルに保存
-        saveDataToFile();
 
-//        val ppgFileName = "ppg_data1.csv"
-//        val accFileName = "acc_data.csv"
-//        val filepath: String = applicationContext.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
-        // /storage/emulated/0/Android/data/com.example.ppgsensor/files/Documents./Log.csv
-//        var filepath = Environment.getExternalStorageDirectory().toString()
-//        Log.d("filepath", "$filepath")
-//        try {
-//            // 内部ストレージにファイルを作成
-//            Log.d("Before", "before")
-//            val ppgfile = File(filepath, ppgFileName)
-//            val accfile = File(filepath, accFileName)
-//            Log.d("after", "after")
-//            // this.filesDir = /data/data/com.example.ppgsensor/files
-//            val directory = this.filesDir
-//            val fileWriter = FileWriter(ppgfile)
-//            // CSV形式でデータを書き込む
-//            for (data in ppgValueList) {
-////                val record = data.joinToString(",") // カンマで要素を結合
-//                fileWriter.write("$data\n") // 改行を追加
-//            }
-//            fileWriter.close()
-//            Log.d("TAG", "CSVデータをストレージに保存しました!：$ppgFileName")
-            //storageに保存
-            //storage内にパスを参照
-//            val uploadFileRef = dataRef?.child("data/${ppgFileName}")
-            //ローカルのファイルを参照しに行く
-//            var newpath = "$filepath/$ppgFileName"
-//            var file = Uri.fromFile(File(newpath))
-//            Log.d("newpath", newpath)
-            // /storage/emulated/0/Android/data/com.example.ppgsensor/files/Documents./ppg_data1.csv
-//            val uploadTask = uploadFileRef?.putFile(file)
-//            uploadTask?.addOnSuccessListener {
-//                Log.d("FirebaseStorage", "CSVファイルが正常にアップロードされました。")
-//            }?.addOnFailureListener { e ->
-//                Log.e("FirebaseStorage", "CSVファイルのアップロード中にエラーが発生しました。", e)
-//            }
-
-//        } catch (e: IOException) {
-//            Log.d("error", "$e.printStackTrace()")
-//        }
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
@@ -227,31 +223,75 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     //センサから情報が得られたときに実行される
     override fun onSensorChanged(event: SensorEvent?) {
+
+        val currentTimeMillis = System.currentTimeMillis()
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+        val timestamp = sdf.format(currentTimeMillis)
         //.?はセーフコール演算子、nullでなければ、処理が実行される. eventオブジェクトにセンサイベントが入ってる。
-//        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS")
-//        val timestamp = System.currentTimeMillis()
-//        val timestampFormatted = dateFormat.format(Date(timestamp))
         event?.let {
-//            Log.d("sensorevent", "${it.sensor.type}") //65572と出力される。
             if(it.sensor.type == 65572) {
                 ppgValue = it.values[0]
-//                Log.d("ppg", "$ppgValue")
-//                ppgValueList.add(timestampFormatted.toFloat())
                 if(isRecording) {
-                    ppgValueList.add(ppgValue)
+                    ppgValueList.add("$timestamp, $ppgValue.toString()")
                 }
             }
             if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                 accValueX = it.values[0]
                 accValueY = it.values[1]
                 accValueZ = it.values[2]
-//                accValueList.add(timestampFormatted.toFloat())
-                if (isRecording) {
-                    accValueList.add(accValueX)
-                }
-//                Log.d("acc", "$accValueX, $accValueY, $accValueZ")
+                accValueList.add("$timestamp, $accValueX, $accValueY, $accValueZ")
             }
         }
+    }
+
+    private fun saveDataToFile() {
+        val directoryPath: String = "/storage/emulated/0/Documents"
+        val filename1 = "acc_data.csv"
+        val filePath1 = File(directoryPath, filename1)
+
+        try {
+            // CSVファイルにデータを書き込む
+            val csvWriter = FileWriter(filePath1)
+            for (line in accValueList) {
+                csvWriter.append(line)
+                csvWriter.append("\n")
+            }
+            csvWriter.flush()
+            csvWriter.close()
+            println("加速度センサーデータをCSVファイルに保存しました。")
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+
+        val filename2 = "ppg_data.csv"
+        val filePath2 = File(directoryPath, filename2)
+
+        try {
+            // CSVファイルにデータを書き込む
+            val csvWriter = FileWriter(filePath2)
+            for (line in accValueList) {
+                csvWriter.append(line)
+                csvWriter.append("\n")
+            }
+            csvWriter.flush()
+            csvWriter.close()
+            println("ppgセンサーデータをCSVファイルに保存しました。")
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+
+        val storageRef = storage.reference
+        var dataRef: StorageReference? = storageRef.child("data.csv")
+        val csvFile = Uri.fromFile(File("/storage/emulated/0/Documents/acc_data.csv"))
+        val uploadTask = dataRef?.putFile(csvFile)
+
+        val user = auth.currentUser
+        Log.d("user", "$user")
+//        uploadTask?.addOnSuccessListener {
+//            Log.d("FirebaseStorage", "CSVファイルが正常にアップロードされました。")
+//        }?.addOnFailureListener { e ->
+//            Log.e("FirebaseStorage", "CSVファイルのアップロード中にエラーが発生しました。", e)
+//        }
     }
 
     override fun onStop() {
@@ -259,15 +299,22 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         Log.d("stop", "stop")
     }
     private val onToggleListening: () -> Unit = {
+        if(isRecording){
+            Log.d("stop", "stop")
+            stopRecording()
+        }else{
+            Log.d("start", "start")
+        }
         isListening = !isListening
         isRecording = !isRecording
-        stopRecording()
     }
 
     private fun stopRecording() {
-        Log.d("ppgValueList", "$ppgValueList")
+//        isRecording = false
+//        sensorManager.unregisterListener(this)
+        saveDataToFile()
         //リストの値をすべて削除する
-        ppgValueList.clear()
+//        ppgValueList.clear()
     }
 
 
