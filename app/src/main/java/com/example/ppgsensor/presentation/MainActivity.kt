@@ -87,7 +87,22 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         auth = FirebaseAuth.getInstance()
 
         // 匿名サインインを実行
-        signInAnonymously()
+//        signInAnonymously()
+        // 新しいアカウントを作成またはログイン
+
+        auth.signInWithEmailAndPassword("example@example.com", "password123")
+            .addOnCompleteListener(this) { task ->
+                Log.d("Create", "Create")
+                if (task.isSuccessful) {
+                    // アカウント作成成功時の処理
+                    val user: FirebaseUser? = auth.currentUser
+                    Log.d("TAG", "アカウント作成成功 UID: ${user?.uid}")
+                } else {
+                    // エラー時の処理
+                    Log.e("TAG", "アカウント作成エラー", task.exception)
+                }
+            }
+
 
         if(sensorManager.getDefaultSensor(65572).type == 65572) {
             setContent {
@@ -125,38 +140,31 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
-    override fun onStart() {
+
+    public override fun onStart() {
         super.onStart()
+        // Check if user is signed in (non-null) and update UI accordingly.
         val currentUser = auth.currentUser
-        if(currentUser == null) {
-            auth.signInAnonymously()
-                .addOnCompleteListener(this) { task ->
-                    if (task.isSuccessful) {
-                        // Sign in success, update UI with the signed-in user's information
-                        Log.d("TAG", "signInAnonymously:success")
-                        val user = auth.currentUser
-                    } else {
-                        // If sign in fails, display a message to the user.
-                        Log.d("TAG", "signInAnonymously:failure", task.exception)
-                    }
-                }
+        if (currentUser != null) {
+//            reload()
         }
     }
 
-    private fun signInAnonymously() {
-        auth.signInAnonymously()
-            .addOnCompleteListener(this) { task ->
-                if (task.isSuccessful) {
-                    // サインイン成功時の処理
-                    val user: FirebaseUser? = auth.currentUser
-                    Log.d("TAG", "匿名サインイン成功 UID: ${user?.uid}")
-                } else {
-                    // エラー時の処理
-                    Log.e("TAG", "匿名サインインエラー", task.exception)
-                }
-            }
-    }
+//    private fun signInAnonymously() {
+//        auth.signInAnonymously()
+//            .addOnCompleteListener(this) { task ->
+//                if (task.isSuccessful) {
+//                    // サインイン成功時の処理
+//                    val user: FirebaseUser? = auth.currentUser
+//                    Log.d("TAG", "匿名サインイン成功 UID: ${user?.uid}")
+//                } else {
+//                    // エラー時の処理
+//                    Log.e("TAG", "匿名サインインエラー", task.exception)
+//                }
+//            }
+//    }
     private fun requestStoragePermission() {
+        Log.d("storageRequest", "StorageRequest")
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -224,15 +232,18 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     //センサから情報が得られたときに実行される
     override fun onSensorChanged(event: SensorEvent?) {
 
-        val currentTimeMillis = System.currentTimeMillis()
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
-        val timestamp = sdf.format(currentTimeMillis)
+//        val currentTimeMillis = System.currentTimeMillis()
+//        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+//        val timestamp = sdf.format(currentTimeMillis)
+        val dateFormat = SimpleDateFormat("HH-mm-ss-SSS")
+        val currentDateTime = Date()
+        val timestamp = dateFormat.format(currentDateTime)
         //.?はセーフコール演算子、nullでなければ、処理が実行される. eventオブジェクトにセンサイベントが入ってる。
         event?.let {
             if(it.sensor.type == 65572) {
                 ppgValue = it.values[0]
                 if(isRecording) {
-                    ppgValueList.add("$timestamp, $ppgValue.toString()")
+                    ppgValueList.add("$timestamp, $ppgValue")
                 }
             }
             if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
@@ -246,8 +257,11 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     private fun saveDataToFile() {
         val directoryPath: String = "/storage/emulated/0/Documents"
-        val filename1 = "acc_data.csv"
+        val filename1 = "acc_data1.csv"
         val filePath1 = File(directoryPath, filename1)
+        val dateFormat = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss")
+        val currentDateTime = Date()
+        val timestamp = dateFormat.format(currentDateTime)
 
         try {
             // CSVファイルにデータを書き込む
@@ -263,13 +277,13 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             e.printStackTrace()
         }
 
-        val filename2 = "ppg_data.csv"
+        val filename2 = "ppg_data1.csv"
         val filePath2 = File(directoryPath, filename2)
 
         try {
             // CSVファイルにデータを書き込む
             val csvWriter = FileWriter(filePath2)
-            for (line in accValueList) {
+            for (line in ppgValueList) {
                 csvWriter.append(line)
                 csvWriter.append("\n")
             }
@@ -281,17 +295,21 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
 
         val storageRef = storage.reference
-        var dataRef: StorageReference? = storageRef.child("data.csv")
-        val csvFile = Uri.fromFile(File("/storage/emulated/0/Documents/acc_data.csv"))
-        val uploadTask = dataRef?.putFile(csvFile)
+        var accDataRef: StorageReference? = storageRef.child("$timestamp+acc.csv")
+        val accCsvFile = Uri.fromFile(File("/storage/emulated/0/Documents/acc_data1.csv"))
+        val uploadTask = accDataRef?.putFile(accCsvFile)
 
         val user = auth.currentUser
         Log.d("user", "$user")
-//        uploadTask?.addOnSuccessListener {
-//            Log.d("FirebaseStorage", "CSVファイルが正常にアップロードされました。")
-//        }?.addOnFailureListener { e ->
-//            Log.e("FirebaseStorage", "CSVファイルのアップロード中にエラーが発生しました。", e)
-//        }
+        uploadTask?.addOnSuccessListener {
+            Log.d("FirebaseStorage", "CSVファイルが正常にアップロードされました。")
+        }?.addOnFailureListener { e ->
+            Log.e("FirebaseStorage", "CSVファイルのアップロード中にエラーが発生しました。", e)
+        }
+
+        var ppgDataRef: StorageReference? = storageRef.child("$timestamp+ppg.csv")
+        val ppgCsvFile = Uri.fromFile(File("/storage/emulated/0/Documents/ppg_data1.csv"))
+        ppgDataRef?.putFile(ppgCsvFile)
     }
 
     override fun onStop() {
