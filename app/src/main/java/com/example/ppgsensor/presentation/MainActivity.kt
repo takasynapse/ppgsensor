@@ -73,8 +73,10 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 
     //firebase cloud storageに保存
     val storage = Firebase.storage
-
     private lateinit var auth: FirebaseAuth
+
+    // 規準となるスタート時刻
+    private val startTimeMillis: Long = System.currentTimeMillis()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -235,9 +237,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 //        val currentTimeMillis = System.currentTimeMillis()
 //        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
 //        val timestamp = sdf.format(currentTimeMillis)
-        val dateFormat = SimpleDateFormat("HH-mm-ss-SSS")
-        val currentDateTime = Date()
-        val timestamp = dateFormat.format(currentDateTime)
+        val currentTimeMillis = System.currentTimeMillis()
+        val timestamp = currentTimeMillis - startTimeMillis
         //.?はセーフコール演算子、nullでなければ、処理が実行される. eventオブジェクトにセンサイベントが入ってる。
         event?.let {
             if(it.sensor.type == 65572) {
@@ -332,7 +333,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
 //        sensorManager.unregisterListener(this)
         saveDataToFile()
         //リストの値をすべて削除する
-//        ppgValueList.clear()
+        ppgValueList.clear()
+        accValueList.clear()
     }
 
 
