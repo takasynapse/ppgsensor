@@ -47,7 +47,7 @@ import java.io.FileWriter
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
-
+import android.view.WindowManager
 
 
 class MainActivity : ComponentActivity(), SensorEventListener {
@@ -87,6 +87,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         FirebaseApp.initializeApp(this)
 
         auth = FirebaseAuth.getInstance()
+
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // 匿名サインインを実行
 //        signInAnonymously()
